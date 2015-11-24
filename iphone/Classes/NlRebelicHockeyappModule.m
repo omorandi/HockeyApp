@@ -90,14 +90,34 @@ static NSString * appCrashInfoKey;
 	}
 }
 
+
+MAKE_SYSTEM_PROP(CrashManagerStatusDisabled, BITCrashManagerStatusDisabled);
+MAKE_SYSTEM_PROP(CrashManagerStatusAlwaysAsk, BITCrashManagerStatusAlwaysAsk);
+MAKE_SYSTEM_PROP(CrashManagerStatusAutoSend, BITCrashManagerStatusAutoSend);
+
+
 #pragma Public APIs
--(void)start:(id)appId
+-(void)start:(id)args
 {
-    ENSURE_UI_THREAD(start, appId);
-    ENSURE_SINGLE_ARG(appId, NSString);
+    ENSURE_UI_THREAD(start, args);
+    
+    NSString *appId = nil;
+    NSDictionary *props = nil;
+    
+    ENSURE_ARG_AT_INDEX(appId, args, 0, NSString);
+    ENSURE_ARG_OR_NIL_AT_INDEX(props, args, 1, NSDictionary);
+    
+    BITCrashManagerStatus crashManagerStatus = [TiUtils intValue:@"crashManagerStatus" properties:props def:BITCrashManagerStatusAutoSend];
+    
+    if (crashManagerStatus > BITCrashManagerStatusAutoSend) {
+        [self throwException:@"Invalid value for crashManagerStatus property" subreason:nil location:CODELOCATION];
+    }
+    
+    BOOL enableStoreUpdateManager = [TiUtils boolValue:@"enableStoreUpdateManager" properties:props def:NO];
     
     [[BITHockeyManager sharedHockeyManager] configureWithIdentifier:appId delegate:self];
-    [[BITHockeyManager sharedHockeyManager].crashManager setCrashManagerStatus: BITCrashManagerStatusAutoSend];
+    [[BITHockeyManager sharedHockeyManager] setEnableStoreUpdateManager: enableStoreUpdateManager];
+    [[BITHockeyManager sharedHockeyManager].crashManager setCrashManagerStatus: crashManagerStatus];
     [[BITHockeyManager sharedHockeyManager] startManager];
     [[BITHockeyManager sharedHockeyManager].authenticator authenticateInstallation];
 }
